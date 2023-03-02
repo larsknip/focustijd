@@ -47,7 +47,7 @@
     </style>
   </head>
   <body>
-    <h1>Test</h1>
+    <h1>Albums om te concentreren</h1>
 
     <div class="slideshow"></div>
 
@@ -93,7 +93,7 @@
           '?response_type=token' +
           '&client_id=' + encodeURIComponent(client_id) +
           '&scope=' + encodeURIComponent(scopes) +
-          '&redirect_uri=' + encodeURIComponent(redirect_uri)  // Use Last FM API to get album art
+          '&redirect_uri=' + encodeURIComponent(redirect_uri);       // Use Last FM API to get album art
       function searchAlbumArt(artist, album, callback) {
         var request = new XMLHttpRequest();
         request.open('GET', 'https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=' + lastFMAPIKey + '&artist=' + encodeURIComponent(artist) + '&album=' + encodeURIComponent(album) + '&format=json', true);
