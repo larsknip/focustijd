@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Login to Spotify</title>
+    <title>Albums om te concentreren</title>
     <style>
       body {
         background-color: black;
@@ -49,24 +49,34 @@
   <body>
     <h1>Albums om te concentreren</h1>
 
-    <div class="slideshow">
-      <img src="https://i.scdn.co/image/ab67616d0000b273b408db7c8fda2514d1034d4b" class="active">
-      <img src="https://i.scdn.co/image/ab67616d0000b273210f4bc4e4d4c4e2cf99e9e9">
-      <img src="https://i.scdn.co/image/ab67616d0000b273945db18d3eab9b3c2d33fcbc">
-      <img src="https://i.scdn.co/image/ab67616d0000b2738029b39090ea91f8a9260bb3">
-      <img src="https://i.scdn.co/image/ab67616d0000b27353615fba8df86e19020b5a5b">
-    </div>
+    <div class="slideshow"></div>
 
     <button class="btn" onclick="authorizeSpotify()">Login with Spotify</button>
 
     <script>
       var slideIndex = 0;
-      showSlides();
+      var slideshow = document.querySelector(".slideshow");
+      var apiKey = "c0a95fb2065d724e02096da0d6a8331e";
+      var tag = "focus";
+      var requestUrl = `https://ws.audioscrobbler.com/2.0/?method=tag.gettopalbums&tag=${tag}&api_key=${apiKey}&format=json`;
+      
+      fetch(requestUrl)
+        .then(response => response.json())
+        .then(data => {
+          var albums = data.topalbums.album;
+          for (var i = 0; i < albums.length; i++) {
+            var img = new Image();
+            img.src = albums[i].image[2]["#text"];
+            img.classList.add("slide");
+            slideshow.appendChild(img);
+          }
+          showSlides();
+        })
+        .catch(error => console.error(error));
 
       function showSlides() {
-        var i;
-        var slides = document.getElementsByClassName("slideshow")[0].getElementsByTagName("img");
-        for (i = 0; i < slides.length; i++) {
+        var slides = document.getElementsByClassName("slide");
+        for (var i = 0; i < slides.length; i++) {
           slides[i].classList.remove("active");
         }
         slideIndex++;
@@ -83,12 +93,91 @@
           '?response_type=token' +
           '&client_id=' + encodeURIComponent(client_id) +
           '&scope=' + encodeURIComponent(scopes) +
-          '&redirect_uri=' + encodeURIComponent(redirect_uri);
-        window.location.href = document.body.appendChild(form);
-          form.submit();
+          '&redirect_uri=' + encodeURIComponent(redirect_uri)  // Use Last FM API to get album art
+      function searchAlbumArt(artist, album, callback) {
+        var request = new XMLHttpRequest();
+        request.open('GET', 'https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=' + lastFMAPIKey + '&artist=' + encodeURIComponent(artist) + '&album=' + encodeURIComponent(album) + '&format=json', true);
+
+        request.onload = function() {
+          if (request.status >= 200 && request.status < 400) {
+            var data = JSON.parse(request.responseText);
+            if (data.album && data.album.image && data.album.image.length > 0) {
+              callback(data.album.image[data.album.image.length - 1]['#text']);
+            }
+          }
+        };
+
+        request.send();
+      }
+
+      // Update slideshow images with album art
+      function updateAlbumArt() {
+        var i;
+        var slides = document.getElementsByClassName("slideshow")[0].getElementsByTagName("img");
+
+        for (i = 0; i < albums.length; i++) {
+          searchAlbumArt(albums[i].artist, albums[i].album, function(albumArtUrl) {
+            var albumIndex = albums.findIndex(function(album) {
+              return album.album === albumArtUrl.album && album.artist === albumArtUrl.artist;
+            });
+
+            if (albumIndex !== -1) {
+              var slideIndex = albumIndex + 1;
+              slides[slideIndex - 1].setAttribute("src", albumArtUrl);
+            }
+          });
         }
       }
+
+      function authorizeSpotify() {
+        var client_id = '88288336697c422d8f72b2f5f854e78e'; // Your client ID
+        var redirect_uri = 'http://localhost:8000/callback.html'; // Your redirect URI
+        var scopes = 'user-library-read'; // The scopes for the access token
+        var url = 'https://accounts.spotify.com/authorize' +
+          '?response_type=token' +
+          '&client_id=' + encodeURIComponent(client_id) +
+          '&scope=' + encodeURIComponent(scopes) +
+          '&redirect_uri=' + encodeURIComponent(redirect_uri);
+
+        window.location = url;
+      }
+
+      function getSavedAlbums(offset) {
+        var request = new XMLHttpRequest();
+        request.open('GET', 'https://api.spotify.com/v1/me/albums?limit=50&offset=' + offset, true);
+        request.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+
+        request.onload = function() {
+          if (request.status >= 200 && request.status < 400) {
+            var data = JSON.parse(request.responseText);
+            if (data.items && data.items.length > 0) {
+              for (var i = 0; i < data.items.length; i++) {
+                albums.push({
+                  'artist': data.items[i].album.artists[0].name,
+                  'album': data.items[i].album.name,
+                });
+              }
+              getSavedAlbums(offset + 50);
+            } else {
+              updateAlbumArt();
+            }
+          }
+        };
+
+        request.send();
+      }
+
+      function getAccessToken() {
+        var match = window.location.hash.match(/#access_token=(.*?)&/);
+        if (match) {
+          accessToken = match[1];
+          getSavedAlbums(0);
+        }
+      }
+
+      // Start the slideshow and check for access token
+      showSlides();
+      getAccessToken();
     </script>
   </body>
 </html>
-
